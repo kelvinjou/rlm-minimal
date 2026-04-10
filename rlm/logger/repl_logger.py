@@ -5,6 +5,7 @@ from rich.text import Text
 from rich import box
 from rich.rule import Rule
 from dataclasses import dataclass
+from pathlib import Path
 from typing import List, Optional
 
 @dataclass
@@ -16,12 +17,26 @@ class CodeExecution:
     execution_time: Optional[float] = None
 
 class REPLEnvLogger:
-    def __init__(self, max_output_length: int = 2000, enabled: bool = True):
+    def __init__(
+        self,
+        max_output_length: int = 2000,
+        enabled: bool = True,
+        log_file: Optional[str] = None,
+    ):
         self.enabled = enabled
         self.console = Console()
         self.executions: List[CodeExecution] = []
         self.execution_count = 0
         self.max_output_length = max_output_length
+        self.log_file = Path(log_file) if log_file else None
+        if self.log_file:
+            self.log_file.parent.mkdir(parents=True, exist_ok=True)
+
+    def _write_file(self, text: str = ""):
+        if not self.log_file:
+            return
+        with self.log_file.open("a", encoding="utf-8") as f:
+            f.write(text + "\n")
     
     def _truncate_output(self, text: str) -> str:
         """Truncate text output to prevent overwhelming console output."""
@@ -47,6 +62,22 @@ class REPLEnvLogger:
             execution_time=execution_time
         )
         self.executions.append(execution)
+        self._write_execution_to_file(execution)
+
+    def _write_execution_to_file(self, execution: CodeExecution) -> None:
+        self._write_file(f"In [{execution.execution_number}]:")
+        self._write_file(execution.code)
+        if execution.stderr:
+            self._write_file(f"Error in [{execution.execution_number}]:")
+            self._write_file(self._truncate_output(execution.stderr))
+        elif execution.stdout:
+            self._write_file(f"Out [{execution.execution_number}]:")
+            self._write_file(self._truncate_output(execution.stdout))
+        else:
+            self._write_file(f"Out [{execution.execution_number}]: No output")
+        if execution.execution_time is not None:
+            self._write_file(f"Timing [{execution.execution_number}]: {execution.execution_time:.4f}s")
+        self._write_file()
     
     def display_last(self) -> None:
         """Display the last logged execution"""

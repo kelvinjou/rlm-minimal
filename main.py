@@ -22,17 +22,24 @@ def generate_massive_context(num_lines: int = 1_000_000, answer: str = "1298418"
     return "\n".join(lines)
 
 def main():
-    print("Example of using RLM (REPL) with GPT-5-nano on a needle-in-haystack problem.")
+    print("Example of using RLM (REPL) with deepseek-reasoner on a needle-in-haystack problem.")
     answer = str(random.randint(1000000, 9999999))
     context = generate_massive_context(num_lines=1_000_000, answer=answer)
 
+    
     rlm = RLM_REPL(
-        model="gpt-5",
-        recursive_model="gpt-5-nano",
+        client_backend="deepseek",
+        recursive_client_backend="deepseek",
+        model="deepseek-reasoner",
+        recursive_model="deepseek-reasoner",
         enable_logging=True,
-        max_iterations=10
+        log_to_file=True,
+        log_dir="logs",
+        max_iterations=5,
+        depth=3
     )
-    query = "I'm looking for a magic number. What is it?"
+    
+    query = "I'm looking for a magic number in this context. What is it?"
     result = rlm.completion(context=context, query=query)
     print(f"Result: {result}. Expected: {answer}")
 

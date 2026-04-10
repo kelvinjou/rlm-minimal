@@ -5,7 +5,7 @@ Utility functions for the RLM REPL Client.
 import re
 from typing import List, Dict, Optional, Tuple, Any
 
-def find_code_blocks(text: str) -> List[str]:
+def find_code_blocks(text: str) -> Optional[List[str]]:
     """
     Find REPL code blocks in text wrapped in triple backticks and return List of content(s).
     Returns None if no code blocks are found.
@@ -17,7 +17,7 @@ def find_code_blocks(text: str) -> List[str]:
         code_content = match.group(1).strip()
         results.append(code_content)
     
-    return results
+    return results or None
 
 def find_final_answer(text: str) -> Optional[Tuple[str, str]]:
     """

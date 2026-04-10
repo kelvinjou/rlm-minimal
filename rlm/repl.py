@@ -15,17 +15,28 @@ from rlm import RLM
 class Sub_RLM(RLM):
     """Recursive LLM client for REPL environment with fixed configuration."""
     
-    def __init__(self, model: str = "gpt-5"):
-        # Configuration - model can be specified
-        self.api_key = os.getenv("OPENAI_API_KEY")
-        if not self.api_key:
-            raise ValueError("OPENAI_API_KEY environment variable is required")
-        
+    def __init__(
+        self,
+        model: str = "gpt-5",
+        provider: Optional[str] = None,
+        api_key: Optional[str] = None,
+        base_url: Optional[str] = None,
+    ):
+        self.provider = (
+            provider
+            or os.getenv("RLM_RECURSIVE_CLIENT_BACKEND")
+            or os.getenv("RLM_CLIENT_BACKEND", "openai")
+        )
         self.model = model
 
-        # Initialize OpenAI client
-        from rlm.utils.llm import OpenAIClient
-        self.client = OpenAIClient(api_key=self.api_key, model=model)
+        from rlm.utils.llm import create_llm_client
+
+        self.client = create_llm_client(
+            api_key=api_key,
+            model=model,
+            base_url=base_url,
+            provider=self.provider,
+        )
         
     
     def completion(self, prompt) -> str:
@@ -72,6 +83,9 @@ class REPLEnv:
     def __init__(
         self,
         recursive_model: str = "gpt-5-mini",
+        recursive_client_backend: Optional[str] = None,
+        recursive_api_key: Optional[str] = None,
+        recursive_base_url: Optional[str] = None,
         context_json: Optional[dict | list] = None,
         context_str: Optional[str] = None,
         setup_code: str = None,
@@ -84,7 +98,12 @@ class REPLEnv:
 
 
         # Initialize minimal RLM / LM client. Change this to support more depths.
-        self.sub_rlm: RLM = Sub_RLM(model=recursive_model)
+        self.sub_rlm: RLM = Sub_RLM(
+            model=recursive_model,
+            provider=recursive_client_backend,
+            api_key=recursive_api_key,
+            base_url=recursive_base_url,
+        )
         
         # Create safe globals with only string-safe built-ins
         self.globals = {
