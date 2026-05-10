@@ -4,9 +4,12 @@ LLM client wrappers.
 
 import os
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Optional
 from openai import OpenAI
 from dotenv import load_dotenv
+
+from rlm.helper import DEEPSEEK_PRICING_PER_1M, _get_nested, _to_dict, _to_float, _to_int
+from rlm.rlm import LLMResult, LLMUsage
 
 load_dotenv()
 
@@ -43,6 +46,7 @@ class OpenAICompatibleClient:
         model: str = "gpt-5",
         base_url: Optional[str] = None,
         provider: str = "openai",
+        call_history: Optional[list[LLMResult]] = None,
     ):
         provider_defaults = OPENAI_COMPATIBLE_PROVIDERS.get(provider)
         if provider_defaults is None and base_url is None:
@@ -70,7 +74,8 @@ class OpenAICompatibleClient:
         else:
             self.client = OpenAI(api_key=self.api_key)
 
-        # Implement cost tracking logic here.
+        self.call_history = call_history if call_history is not None else []
+
     
     def completion(
         self,
@@ -78,6 +83,18 @@ class OpenAICompatibleClient:
         max_tokens: Optional[int] = None,
         **kwargs
     ) -> str:
+        return self.completion_with_metadata(
+            messages=messages,
+            max_tokens=max_tokens,
+            **kwargs,
+        ).content
+
+    def completion_with_metadata(
+        self,
+        messages: list[dict[str, str]] | str,
+        max_tokens: Optional[int] = None,
+        **kwargs
+    ) -> LLMResult:
         try:
             if isinstance(messages, str):
                 messages = [{"role": "user", "content": messages}]
@@ -96,40 +113,112 @@ class OpenAICompatibleClient:
                 request_params["max_tokens"] = max_tokens
 
             response = self.client.chat.completions.create(**request_params)
+            result = self._parse_response(response)
+            self.call_history.append(result)
+            return result
 
-            choices = getattr(response, "choices", None)
-            if not choices:
-                response_error = getattr(response, "error", None)
-                if response_error:
-                    raise RuntimeError(f"API response error: {response_error}")
-
-                response_dump = (
-                    response.model_dump()
-                    if hasattr(response, "model_dump")
-                    else repr(response)
-                )
-                raise RuntimeError(f"API response did not include choices: {response_dump}")
-
-            message = choices[0].message
-            content = getattr(message, "content", None)
-            if content is None:
-                response_dump = (
-                    response.model_dump()
-                    if hasattr(response, "model_dump")
-                    else repr(response)
-                )
-                raise RuntimeError(f"API response message did not include content: {response_dump}")
-
-            if isinstance(content, list):
-                return "".join(
-                    part.get("text", "") if isinstance(part, dict) else str(part)
-                    for part in content
-                )
-
-            return content
-
+        except RuntimeError:
+            raise
         except Exception as e:
             raise RuntimeError(f"Error generating completion: {str(e)}")
+
+    def _parse_response(self, response) -> LLMResult:
+        response_data = _to_dict(response)
+        choices = response_data.get("choices") or []
+        if not choices:
+            response_error = response_data.get("error")
+            if response_error:
+                raise RuntimeError(f"API response error: {response_error}")
+
+            raise RuntimeError(f"API response did not include choices: {response_data or repr(response)}")
+
+        message = choices[0].get("message") or {}
+        content = message.get("content")
+        if content is None:
+            raise RuntimeError(f"API response message did not include content: {response_data or repr(response)}")
+
+        if isinstance(content, list):
+            content = "".join(
+                part.get("text", "") if isinstance(part, dict) else str(part)
+                for part in content
+            )
+
+        usage = self._parse_usage(response_data.get("usage") or {})
+        cost, cost_source, upstream_cost = self._parse_cost(response_data, usage)
+
+        return LLMResult(
+            content=content,
+            usage=usage,
+            cost=cost,
+            cost_source=cost_source,
+            upstream_cost=upstream_cost,
+            response_id=response_data.get("id"),
+            provider=self.provider,
+            model=response_data.get("model") or self.model,
+            reasoning_content=message.get("reasoning_content"),
+            raw_response=response,
+        )
+
+    def _parse_usage(self, usage_data: dict) -> Optional[LLMUsage]:
+        if not usage_data:
+            return None
+
+        prompt_details = usage_data.get("prompt_tokens_details") or {}
+        completion_details = usage_data.get("completion_tokens_details") or {}
+
+        cached_input_tokens = (
+            _to_int(usage_data.get("prompt_cache_hit_tokens"))
+            or _to_int(prompt_details.get("cached_tokens"))
+        )
+        cache_miss_input_tokens = _to_int(usage_data.get("prompt_cache_miss_tokens"))
+
+        return LLMUsage(
+            input_tokens=_to_int(usage_data.get("prompt_tokens")),
+            output_tokens=_to_int(usage_data.get("completion_tokens")),
+            total_tokens=_to_int(usage_data.get("total_tokens")),
+            cached_input_tokens=cached_input_tokens,
+            cache_miss_input_tokens=cache_miss_input_tokens,
+            cache_write_tokens=_to_int(prompt_details.get("cache_write_tokens")),
+            reasoning_tokens=_to_int(completion_details.get("reasoning_tokens")),
+            audio_tokens=(
+                _to_int(prompt_details.get("audio_tokens"))
+                + _to_int(completion_details.get("audio_tokens"))
+            ),
+        )
+
+    def _parse_cost(
+        self,
+        response_data: dict,
+        usage: Optional[LLMUsage],
+    ) -> tuple[Optional[float], Optional[str], Optional[float]]:
+        usage_data = response_data.get("usage") or {}
+
+        provider_cost = _to_float(usage_data.get("cost"))
+        upstream_cost = _to_float(_get_nested(usage_data, "cost_details", "upstream_inference_cost"))
+        if provider_cost is not None:
+            return provider_cost, "provider", upstream_cost
+
+        if self.provider == "deepseek" and usage:
+            estimated_cost = self._estimate_deepseek_cost(usage)
+            if estimated_cost is not None:
+                return estimated_cost, "estimated", upstream_cost
+
+        return None, None, upstream_cost
+
+    def _estimate_deepseek_cost(self, usage: LLMUsage) -> Optional[float]:
+        pricing = DEEPSEEK_PRICING_PER_1M.get(self.model)
+        if not pricing:
+            return None
+
+        cache_miss_input_tokens = usage.cache_miss_input_tokens
+        if cache_miss_input_tokens == 0 and usage.input_tokens:
+            cache_miss_input_tokens = max(0, usage.input_tokens - usage.cached_input_tokens)
+
+        return (
+            usage.cached_input_tokens * pricing["input_cache_hit"]
+            + cache_miss_input_tokens * pricing["input_cache_miss"]
+            + usage.output_tokens * pricing["output"]
+        ) / 1_000_000
 
 
 def create_llm_client(
@@ -138,6 +227,7 @@ def create_llm_client(
     model: str = "gpt-5",
     base_url: Optional[str] = None,
     provider: Optional[str] = None,
+    call_history: Optional[list[LLMResult]] = None,
 ) -> OpenAICompatibleClient:
     provider = provider or os.getenv("RLM_CLIENT_BACKEND", "openai")
     return OpenAICompatibleClient(
@@ -145,6 +235,7 @@ def create_llm_client(
         model=model,
         base_url=base_url,
         provider=provider,
+        call_history=call_history,
     )
 
 

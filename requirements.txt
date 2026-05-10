@@ -1,3 +1,5 @@
 openai
 dotenv
 rich
+datasets
+pandas

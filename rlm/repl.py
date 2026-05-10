@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from rlm import RLM
+from rlm.rlm import LLMResult
 
 # Simple sub LM for REPL environment. Note: This could also be just the RLM itself!
 class Sub_RLM(RLM):
@@ -21,6 +22,7 @@ class Sub_RLM(RLM):
         provider: Optional[str] = None,
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
+        call_history: Optional[list[LLMResult]] = None,
     ):
         self.provider = (
             provider
@@ -36,6 +38,7 @@ class Sub_RLM(RLM):
             model=model,
             base_url=base_url,
             provider=self.provider,
+            call_history=call_history,
         )
         
     
@@ -69,12 +72,21 @@ class REPLResult:
     stderr: str
     locals: dict
     execution_time: float
+    llm_results: list[LLMResult]
 
-    def __init__(self, stdout: str, stderr: str, locals: dict, execution_time: float=None):
+    def __init__(
+        self,
+        stdout: str,
+        stderr: str,
+        locals: dict,
+        execution_time: float = None,
+        llm_results: Optional[list[LLMResult]] = None,
+    ):
         self.stdout = stdout
         self.stderr = stderr
         self.locals = locals
         self.execution_time = execution_time
+        self.llm_results = llm_results or []
     
     def __str__(self):
         return f"REPLResult(stdout={self.stdout}, stderr={self.stderr}, locals={self.locals}, execution_time={self.execution_time})"
@@ -86,12 +98,14 @@ class REPLEnv:
         recursive_client_backend: Optional[str] = None,
         recursive_api_key: Optional[str] = None,
         recursive_base_url: Optional[str] = None,
+        call_history: Optional[list[LLMResult]] = None,
         context_json: Optional[dict | list] = None,
         context_str: Optional[str] = None,
         setup_code: str = None,
     ):
         # Store the original working directory
         self.original_cwd = os.getcwd()
+        self.call_history = call_history
         
         # Create temporary directory (but don't change global working directory)
         self.temp_dir = tempfile.mkdtemp(prefix="repl_env_")
@@ -103,6 +117,7 @@ class REPLEnv:
             provider=recursive_client_backend,
             api_key=recursive_api_key,
             base_url=recursive_base_url,
+            call_history=call_history,
         )
         
         # Create safe globals with only string-safe built-ins
@@ -285,6 +300,7 @@ class REPLEnv:
         Simple code execution "notebook-style" in a REPL environment.
         """
         start_time = time.time()
+        llm_call_start = len(self.call_history) if self.call_history is not None else 0
         with self._capture_output() as (stdout_buffer, stderr_buffer):
             with self._temp_working_directory():
                 try:
@@ -371,8 +387,17 @@ class REPLEnv:
         # Store output in locals for access
         self.locals['_stdout'] = stdout_content
         self.locals['_stderr'] = stderr_content
+        llm_results = []
+        if self.call_history is not None:
+            llm_results = self.call_history[llm_call_start:]
         
-        return REPLResult(stdout_content, stderr_content, self.locals.copy(), execution_time)
+        return REPLResult(
+            stdout_content,
+            stderr_content,
+            self.locals.copy(),
+            execution_time,
+            llm_results,
+        )
     
     def get_cost_summary(self):
         raise NotImplementedError("Cost tracking is not implemented for the REPL Environment.")

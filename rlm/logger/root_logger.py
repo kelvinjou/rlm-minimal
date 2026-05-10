@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import List, Dict, Optional
 from datetime import datetime
 
+from rlm.rlm import LLMResult
+
 
 class ColorfulLogger:
     """
@@ -177,6 +179,61 @@ class ColorfulLogger:
             print(f"  {self._colorize('Result:', 'GREEN')} {display_result}")
             print()
         self._write_file(f"  Result: {display_result}")
+        self._write_file()
+
+    def _format_llm_metadata(self, result: LLMResult) -> list[str]:
+        usage = result.usage
+        lines = [
+            f"  Provider: {result.provider or 'unknown'}",
+            f"  Model: {result.model or 'unknown'}",
+        ]
+        if result.response_id:
+            lines.append(f"  Response ID: {result.response_id}")
+        if usage:
+            lines.extend(
+                [
+                    f"  Input tokens: {usage.input_tokens}",
+                    f"  Output tokens: {usage.output_tokens}",
+                    f"  Total tokens: {usage.total_tokens}",
+                    f"  Cached input tokens: {usage.cached_input_tokens}",
+                    f"  Cache miss input tokens: {usage.cache_miss_input_tokens}",
+                    f"  Cache write tokens: {usage.cache_write_tokens}",
+                    f"  Reasoning tokens: {usage.reasoning_tokens}",
+                    f"  Audio tokens: {usage.audio_tokens}",
+                ]
+            )
+        else:
+            lines.append("  Usage: unavailable")
+        if result.cost is None:
+            lines.append("  Cost: unavailable")
+        else:
+            cost_source = f" ({result.cost_source})" if result.cost_source else ""
+            lines.append(f"  Cost: ${result.cost:.8f}{cost_source}")
+        if result.upstream_cost is not None:
+            lines.append(f"  Upstream cost: ${result.upstream_cost:.8f}")
+        if result.reasoning_content:
+            lines.extend(
+                [
+                    "  Reasoning content:",
+                    "  <think>",
+                    result.reasoning_content,
+                    "  </think>",
+                ]
+            )
+        return lines
+
+    def log_llm_call(self, label: str, result: LLMResult):
+        """Log normalized model usage/cost metadata."""
+        if not self.enabled and not self.log_file:
+            return
+
+        self._emit(label, "BOLD")
+        for line in self._format_llm_metadata(result):
+            if self.enabled:
+                print(self._colorize(line, "DIM"))
+            self._write_file(line)
+        if self.enabled:
+            print()
         self._write_file()
     
     def log_final_response(self, response: str):

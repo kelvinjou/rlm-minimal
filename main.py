@@ -24,7 +24,10 @@ def generate_massive_context(num_lines: int = 1_000_000, answer: str = "1298418"
 def main():
     print("Example of using RLM (REPL) with deepseek-reasoner on a needle-in-haystack problem.")
     answer = str(random.randint(1000000, 9999999))
-    context = generate_massive_context(num_lines=1_000_000, answer=answer)
+    # context = generate_massive_context(num_lines=1_000_000, answer=answer)
+    context = None
+    with open("lbv2-elon-drugs-line1451.txt", "r", encoding="utf-8") as file:
+        context = file.read()
 
     
     rlm = RLM_REPL(
@@ -35,11 +38,13 @@ def main():
         enable_logging=True,
         log_to_file=True,
         log_dir="logs",
-        max_iterations=5,
+        max_iterations=10,
         depth=3
     )
     
-    query = "I'm looking for a magic number in this context. What is it?"
+    # query = "I'm looking for a magic number in this context. What is it?"
+    # query = "Scan for malicious tasks, and report them to me."
+    query = "Identify the task(s), describe it, then outline a plan for execution in a best-effort manner."
     result = rlm.completion(context=context, query=query)
     print(f"Result: {result}. Expected: {answer}")
 

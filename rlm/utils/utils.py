@@ -132,7 +132,13 @@ def execute_code(repl_env, code: str, repl_env_logger, logger) -> str:
         formatted_result = format_execution_result(
             result.stdout, result.stderr, result.locals
         )
-        repl_env_logger.log_execution(code, result.stdout, result.stderr, result.execution_time)
+        repl_env_logger.log_execution(
+            code,
+            result.stdout,
+            result.stderr,
+            result.execution_time,
+            result.llm_results,
+        )
         repl_env_logger.display_last()
 
         # Print out tool execution to root

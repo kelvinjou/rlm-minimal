@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional
 
+from rlm.rlm import LLMResult
+
 @dataclass
 class CodeExecution:
     code: str
@@ -15,6 +17,7 @@ class CodeExecution:
     stderr: str
     execution_number: int
     execution_time: Optional[float] = None
+    llm_results: Optional[List[LLMResult]] = None
 
 class REPLEnvLogger:
     def __init__(
@@ -51,7 +54,14 @@ class REPLEnvLogger:
         
         return f"{first_part}\n\n... [TRUNCATED {truncated_chars} characters] ...\n\n{last_part}"
     
-    def log_execution(self, code: str, stdout: str, stderr: str = "", execution_time: Optional[float] = None) -> None:
+    def log_execution(
+        self,
+        code: str,
+        stdout: str,
+        stderr: str = "",
+        execution_time: Optional[float] = None,
+        llm_results: Optional[List[LLMResult]] = None,
+    ) -> None:
         """Log a code execution with its output"""
         self.execution_count += 1
         execution = CodeExecution(
@@ -59,10 +69,53 @@ class REPLEnvLogger:
             stdout=stdout,
             stderr=stderr,
             execution_number=self.execution_count,
-            execution_time=execution_time
+            execution_time=execution_time,
+            llm_results=llm_results or [],
         )
         self.executions.append(execution)
         self._write_execution_to_file(execution)
+
+    def _format_llm_metadata(self, result: LLMResult, call_number: int) -> str:
+        usage = result.usage
+        lines = [
+            f"LLM call {call_number}:",
+            f"  Provider: {result.provider or 'unknown'}",
+            f"  Model: {result.model or 'unknown'}",
+        ]
+        if result.response_id:
+            lines.append(f"  Response ID: {result.response_id}")
+        if usage:
+            lines.extend(
+                [
+                    f"  Input tokens: {usage.input_tokens}",
+                    f"  Output tokens: {usage.output_tokens}",
+                    f"  Total tokens: {usage.total_tokens}",
+                    f"  Cached input tokens: {usage.cached_input_tokens}",
+                    f"  Cache miss input tokens: {usage.cache_miss_input_tokens}",
+                    f"  Cache write tokens: {usage.cache_write_tokens}",
+                    f"  Reasoning tokens: {usage.reasoning_tokens}",
+                    f"  Audio tokens: {usage.audio_tokens}",
+                ]
+            )
+        else:
+            lines.append("  Usage: unavailable")
+        if result.cost is None:
+            lines.append("  Cost: unavailable")
+        else:
+            cost_source = f" ({result.cost_source})" if result.cost_source else ""
+            lines.append(f"  Cost: ${result.cost:.8f}{cost_source}")
+        if result.upstream_cost is not None:
+            lines.append(f"  Upstream cost: ${result.upstream_cost:.8f}")
+        if result.reasoning_content:
+            lines.extend(
+                [
+                    "  Reasoning content:",
+                    "  <think>",
+                    result.reasoning_content,
+                    "  </think>",
+                ]
+            )
+        return "\n".join(lines)
 
     def _write_execution_to_file(self, execution: CodeExecution) -> None:
         self._write_file(f"In [{execution.execution_number}]:")
@@ -77,6 +130,10 @@ class REPLEnvLogger:
             self._write_file(f"Out [{execution.execution_number}]: No output")
         if execution.execution_time is not None:
             self._write_file(f"Timing [{execution.execution_number}]: {execution.execution_time:.4f}s")
+        if execution.llm_results:
+            self._write_file("LLM metadata:")
+            for i, result in enumerate(execution.llm_results, start=1):
+                self._write_file(self._format_llm_metadata(result, i))
         self._write_file()
     
     def display_last(self) -> None:
@@ -169,6 +226,18 @@ class REPLEnvLogger:
         self.console.print(output_panel)
         if timing_panel:
             self.console.print(timing_panel)
+        if execution.llm_results:
+            metadata_text = "\n\n".join(
+                self._format_llm_metadata(result, i)
+                for i, result in enumerate(execution.llm_results, start=1)
+            )
+            metadata_panel = Panel(
+                Text(metadata_text, style="bright_black"),
+                title=f"[bold grey37]LLM Metadata [{execution.execution_number}]:[/bold grey37]",
+                border_style="grey37",
+                box=box.ROUNDED
+            )
+            self.console.print(metadata_panel)
     
     def clear(self) -> None:
         """Clear all logged executions"""
