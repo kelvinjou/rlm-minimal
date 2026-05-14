@@ -29,6 +29,12 @@ OPENAI_COMPATIBLE_PROVIDERS = {
         api_key_env="DEEPSEEK_API_KEY",
         base_url="https://api.deepseek.com",
     ),
+    "nvidia": OpenAICompatibleProvider(
+        api_key_env="NVIDIA_API_KEY",
+        # https://integrate.api.nvidia.com/v1/chat/completions # for kimi2.6
+        # https://integrate.api.nvidia.com/v1 # for deepseek v4 pro
+        base_url="https://integrate.api.nvidia.com/v1",
+    ),
     "openai_compatible": OpenAICompatibleProvider(
         api_key_env="LLM_API_KEY",
         base_url=None,

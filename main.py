@@ -22,21 +22,21 @@ def generate_massive_context(num_lines: int = 1_000_000, answer: str = "1298418"
     return "\n".join(lines)
 
 def main():
-    print("Example of using RLM (REPL) with deepseek-reasoner on a needle-in-haystack problem.")
+    print("Example of using RLM (REPL) with NVIDIA DeepSeek V4 Pro on a needle-in-haystack problem.")
     answer = str(random.randint(1000000, 9999999))
     context = generate_massive_context(num_lines=1_000_000, answer=answer)
 
     
     rlm = RLM_REPL(
-        client_backend="deepseek",
-        recursive_client_backend="deepseek",
-        model="deepseek-reasoner",
-        recursive_model="deepseek-reasoner",
+        client_backend="nvidia",
+        recursive_client_backend="nvidia",
+        model="moonshotai/kimi-k2.6",
+        recursive_model="moonshotai/kimi-k2.6",
         enable_logging=True,
         log_to_file=True,
         log_dir="logs",
-        max_iterations=5,
-        depth=3
+        max_iterations=3,
+        depth=2
     )
     
     query = "I'm looking for a magic number in this context. What is it?"
