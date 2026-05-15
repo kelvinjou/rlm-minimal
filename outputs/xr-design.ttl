@@ -1,0 +1,629 @@
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix xr:   <http://xrdesign.org/ontology#> .
+@prefix dc:   <http://purl.org/dc/elements/1.1/> .
+
+# ─────────────────────────────────────────────
+# Ontology header
+# ─────────────────────────────────────────────
+
+<http://xrdesign.org/ontology>
+    a owl:Ontology ;
+    dc:title "XR Design Ontology" ;
+    dc:description "An ontology covering concepts, components, and relationships in Extended Reality (XR) design — including AR, VR, and MR." ;
+    owl:versionInfo "1.0" .
+
+
+# ─────────────────────────────────────────────
+# Top-level classes
+# ─────────────────────────────────────────────
+
+xr:XRExperience
+    a owl:Class ;
+    rdfs:label "XR Experience" ;
+    rdfs:comment "Any experience delivered through extended reality technology." .
+
+xr:XRMedium
+    a owl:Class ;
+    rdfs:label "XR Medium" ;
+    rdfs:comment "The type of reality continuum the experience occupies." .
+
+xr:Device
+    a owl:Class ;
+    rdfs:label "Device" ;
+    rdfs:comment "Hardware used to deliver or interact with XR content." .
+
+xr:InteractionModel
+    a owl:Class ;
+    rdfs:label "Interaction Model" ;
+    rdfs:comment "A pattern or paradigm through which a user interacts in an XR experience." .
+
+xr:UIComponent
+    a owl:Class ;
+    rdfs:label "UI Component" ;
+    rdfs:comment "A visual or spatial element of the user interface." .
+
+xr:Space
+    a owl:Class ;
+    rdfs:label "Space" ;
+    rdfs:comment "The physical or virtual space in which XR content is anchored or rendered." .
+
+xr:User
+    a owl:Class ;
+    rdfs:label "User" ;
+    rdfs:comment "A person engaging with an XR experience." .
+
+xr:DesignPrinciple
+    a owl:Class ;
+    rdfs:label "Design Principle" ;
+    rdfs:comment "A guideline or heuristic used to inform XR design decisions." .
+
+xr:ContentType
+    a owl:Class ;
+    rdfs:label "Content Type" ;
+    rdfs:comment "The kind of media or information rendered in the XR experience." .
+
+xr:AnchorStrategy
+    a owl:Class ;
+    rdfs:label "Anchor Strategy" ;
+    rdfs:comment "The method by which virtual content is anchored to the real or virtual world." .
+
+xr:ComfortFactor
+    a owl:Class ;
+    rdfs:label "Comfort Factor" ;
+    rdfs:comment "A consideration affecting user comfort and safety in XR." .
+
+
+# ─────────────────────────────────────────────
+# XR Medium subclasses
+# ─────────────────────────────────────────────
+
+xr:VirtualReality
+    a owl:Class ;
+    rdfs:label "Virtual Reality" ;
+    rdfs:comment "Fully immersive synthetic environment; physical world is occluded." ;
+    rdfs:subClassOf xr:XRMedium .
+
+xr:AugmentedReality
+    a owl:Class ;
+    rdfs:label "Augmented Reality" ;
+    rdfs:comment "Digital overlays composited on top of the physical world." ;
+    rdfs:subClassOf xr:XRMedium .
+
+xr:MixedReality
+    a owl:Class ;
+    rdfs:label "Mixed Reality" ;
+    rdfs:comment "Digital and physical objects coexist and interact in real time." ;
+    rdfs:subClassOf xr:XRMedium .
+
+xr:PassthroughReality
+    a owl:Class ;
+    rdfs:label "Passthrough Reality" ;
+    rdfs:comment "VR headset with video passthrough used to blend real and virtual content." ;
+    rdfs:subClassOf xr:MixedReality .
+
+
+# ─────────────────────────────────────────────
+# Device subclasses
+# ─────────────────────────────────────────────
+
+xr:HeadMountedDisplay
+    a owl:Class ;
+    rdfs:label "Head-Mounted Display" ;
+    rdfs:comment "Worn on the head, rendering content directly to the eyes." ;
+    rdfs:subClassOf xr:Device .
+
+xr:HandheldDevice
+    a owl:Class ;
+    rdfs:label "Handheld Device" ;
+    rdfs:comment "Phone or tablet used for AR experiences." ;
+    rdfs:subClassOf xr:Device .
+
+xr:HapticDevice
+    a owl:Class ;
+    rdfs:label "Haptic Device" ;
+    rdfs:comment "Peripheral providing tactile feedback to the user." ;
+    rdfs:subClassOf xr:Device .
+
+xr:SpatialTracker
+    a owl:Class ;
+    rdfs:label "Spatial Tracker" ;
+    rdfs:comment "Device for tracking position and orientation in 3D space." ;
+    rdfs:subClassOf xr:Device .
+
+xr:VRHeadset
+    a owl:Class ;
+    rdfs:label "VR Headset" ;
+    rdfs:comment "Opaque HMD delivering a fully immersive virtual environment." ;
+    rdfs:subClassOf xr:HeadMountedDisplay .
+
+xr:ARGlasses
+    a owl:Class ;
+    rdfs:label "AR Glasses" ;
+    rdfs:comment "Optical see-through wearable overlaying digital content on the real world." ;
+    rdfs:subClassOf xr:HeadMountedDisplay .
+
+
+# ─────────────────────────────────────────────
+# Interaction model subclasses
+# ─────────────────────────────────────────────
+
+xr:HandTracking
+    a owl:Class ;
+    rdfs:label "Hand Tracking" ;
+    rdfs:comment "Direct manipulation using bare hands tracked by sensors." ;
+    rdfs:subClassOf xr:InteractionModel .
+
+xr:ControllerInput
+    a owl:Class ;
+    rdfs:label "Controller Input" ;
+    rdfs:comment "6DOF handheld controller providing buttons, triggers, and thumbsticks." ;
+    rdfs:subClassOf xr:InteractionModel .
+
+xr:GazeInput
+    a owl:Class ;
+    rdfs:label "Gaze Input" ;
+    rdfs:comment "Eye-tracking used to direct focus or trigger interactions." ;
+    rdfs:subClassOf xr:InteractionModel .
+
+xr:VoiceInput
+    a owl:Class ;
+    rdfs:label "Voice Input" ;
+    rdfs:comment "Speech recognition used to issue commands or fill input fields." ;
+    rdfs:subClassOf xr:InteractionModel .
+
+xr:BodyTracking
+    a owl:Class ;
+    rdfs:label "Body Tracking" ;
+    rdfs:comment "Full or partial body pose used as an input signal." ;
+    rdfs:subClassOf xr:InteractionModel .
+
+xr:DirectManipulation
+    a owl:Class ;
+    rdfs:label "Direct Manipulation" ;
+    rdfs:comment "User interacts by touching or grabbing virtual objects directly." ;
+    rdfs:subClassOf xr:InteractionModel .
+
+xr:RaycastInteraction
+    a owl:Class ;
+    rdfs:label "Raycast Interaction" ;
+    rdfs:comment "A ray projected from hand or controller selects distant objects." ;
+    rdfs:subClassOf xr:InteractionModel .
+
+
+# ─────────────────────────────────────────────
+# UI Component subclasses
+# ─────────────────────────────────────────────
+
+xr:SpatialPanel
+    a owl:Class ;
+    rdfs:label "Spatial Panel" ;
+    rdfs:comment "A flat UI surface floating in 3D space." ;
+    rdfs:subClassOf xr:UIComponent .
+
+xr:WorldLockedElement
+    a owl:Class ;
+    rdfs:label "World-Locked Element" ;
+    rdfs:comment "UI element anchored to a fixed position in the physical or virtual world." ;
+    rdfs:subClassOf xr:UIComponent .
+
+xr:HeadLockedElement
+    a owl:Class ;
+    rdfs:label "Head-Locked Element" ;
+    rdfs:comment "UI element that follows the user's head pose — use sparingly." ;
+    rdfs:subClassOf xr:UIComponent .
+
+xr:HandLockedElement
+    a owl:Class ;
+    rdfs:label "Hand-Locked Element" ;
+    rdfs:comment "UI element attached to the user's hand or wrist." ;
+    rdfs:subClassOf xr:UIComponent .
+
+xr:Tooltip
+    a owl:Class ;
+    rdfs:label "Tooltip" ;
+    rdfs:comment "Contextual label appearing near a selectable object." ;
+    rdfs:subClassOf xr:UIComponent .
+
+xr:ProgressIndicator
+    a owl:Class ;
+    rdfs:label "Progress Indicator" ;
+    rdfs:comment "Visual feedback showing system state or dwell-time loading." ;
+    rdfs:subClassOf xr:UIComponent .
+
+xr:Billboard
+    a owl:Class ;
+    rdfs:label "Billboard" ;
+    rdfs:comment "UI element that always faces the user regardless of viewing angle." ;
+    rdfs:subClassOf xr:UIComponent .
+
+xr:SpatialAudio
+    a owl:Class ;
+    rdfs:label "Spatial Audio" ;
+    rdfs:comment "Positional audio cue used as a UI or environmental signal." ;
+    rdfs:subClassOf xr:UIComponent .
+
+xr:Cursor3D
+    a owl:Class ;
+    rdfs:label "3D Cursor" ;
+    rdfs:comment "A spatial indicator showing where the user's gaze or ray intersects geometry." ;
+    rdfs:subClassOf xr:UIComponent .
+
+
+# ─────────────────────────────────────────────
+# Space subclasses
+# ─────────────────────────────────────────────
+
+xr:PhysicalSpace
+    a owl:Class ;
+    rdfs:label "Physical Space" ;
+    rdfs:comment "The real-world environment in which the user is located." ;
+    rdfs:subClassOf xr:Space .
+
+xr:VirtualSpace
+    a owl:Class ;
+    rdfs:label "Virtual Space" ;
+    rdfs:comment "A fully synthetic 3D environment." ;
+    rdfs:subClassOf xr:Space .
+
+xr:Scene
+    a owl:Class ;
+    rdfs:label "Scene" ;
+    rdfs:comment "A discrete spatial context or level within a VR experience." ;
+    rdfs:subClassOf xr:VirtualSpace .
+
+xr:PlayArea
+    a owl:Class ;
+    rdfs:label "Play Area" ;
+    rdfs:comment "The bounded physical space within which the user can move safely." ;
+    rdfs:subClassOf xr:PhysicalSpace .
+
+
+# ─────────────────────────────────────────────
+# Anchor strategy subclasses
+# ─────────────────────────────────────────────
+
+xr:SurfaceAnchor
+    a owl:Class ;
+    rdfs:label "Surface Anchor" ;
+    rdfs:comment "Virtual content placed on a detected horizontal or vertical surface." ;
+    rdfs:subClassOf xr:AnchorStrategy .
+
+xr:ImageAnchor
+    a owl:Class ;
+    rdfs:label "Image Anchor" ;
+    rdfs:comment "Virtual content triggered and locked to a recognised 2D image target." ;
+    rdfs:subClassOf xr:AnchorStrategy .
+
+xr:ObjectAnchor
+    a owl:Class ;
+    rdfs:label "Object Anchor" ;
+    rdfs:comment "Content anchored to a recognised 3D real-world object." ;
+    rdfs:subClassOf xr:AnchorStrategy .
+
+xr:GeospatialAnchor
+    a owl:Class ;
+    rdfs:label "Geospatial Anchor" ;
+    rdfs:comment "Content placed at a real-world GPS/VPS coordinate." ;
+    rdfs:subClassOf xr:AnchorStrategy .
+
+xr:SharedAnchor
+    a owl:Class ;
+    rdfs:label "Shared Anchor" ;
+    rdfs:comment "Anchor synchronised across multiple users for a co-located experience." ;
+    rdfs:subClassOf xr:AnchorStrategy .
+
+
+# ─────────────────────────────────────────────
+# Content type subclasses
+# ─────────────────────────────────────────────
+
+xr:3DModel
+    a owl:Class ;
+    rdfs:label "3D Model" ;
+    rdfs:comment "A polygonal mesh rendered in 3D space." ;
+    rdfs:subClassOf xr:ContentType .
+
+xr:PointCloud
+    a owl:Class ;
+    rdfs:label "Point Cloud" ;
+    rdfs:comment "A set of 3D points representing scanned real-world geometry." ;
+    rdfs:subClassOf xr:ContentType .
+
+xr:Video360
+    a owl:Class ;
+    rdfs:label "360 Video" ;
+    rdfs:comment "Equirectangular video projected on the interior of a sphere." ;
+    rdfs:subClassOf xr:ContentType .
+
+xr:ParticleSystem
+    a owl:Class ;
+    rdfs:label "Particle System" ;
+    rdfs:comment "Dynamic simulation of many small elements (fire, smoke, rain)." ;
+    rdfs:subClassOf xr:ContentType .
+
+xr:Avatar
+    a owl:Class ;
+    rdfs:label "Avatar" ;
+    rdfs:comment "A 3D representation of the user or a remote participant." ;
+    rdfs:subClassOf xr:ContentType .
+
+xr:DataVisualization
+    a owl:Class ;
+    rdfs:label "Data Visualization" ;
+    rdfs:comment "Charts, graphs, or abstract data representations rendered in 3D space." ;
+    rdfs:subClassOf xr:ContentType .
+
+
+# ─────────────────────────────────────────────
+# Comfort factor subclasses
+# ─────────────────────────────────────────────
+
+xr:MotionSickness
+    a owl:Class ;
+    rdfs:label "Motion Sickness" ;
+    rdfs:comment "Discomfort caused by mismatch between visual motion and vestibular sensation." ;
+    rdfs:subClassOf xr:ComfortFactor .
+
+xr:CybersicknessRisk
+    a owl:Class ;
+    rdfs:label "Cybersickness Risk" ;
+    rdfs:comment "Any design pattern that may increase simulator sickness." ;
+    rdfs:subClassOf xr:ComfortFactor .
+
+xr:EyeStrain
+    a owl:Class ;
+    rdfs:label "Eye Strain" ;
+    rdfs:comment "Visual fatigue caused by vergence-accommodation conflict or improper IPD." ;
+    rdfs:subClassOf xr:ComfortFactor .
+
+xr:PhysicalFatigue
+    a owl:Class ;
+    rdfs:label "Physical Fatigue" ;
+    rdfs:comment "Muscle fatigue from sustained postures, such as raised arms (gorilla arm)." ;
+    rdfs:subClassOf xr:ComfortFactor .
+
+xr:PersonalSpaceViolation
+    a owl:Class ;
+    rdfs:label "Personal Space Violation" ;
+    rdfs:comment "UI or virtual characters that intrude into the user's proxemic comfort zone." ;
+    rdfs:subClassOf xr:ComfortFactor .
+
+
+# ─────────────────────────────────────────────
+# Design principle individuals
+# ─────────────────────────────────────────────
+
+xr:dp_minimiseHeadLock
+    a xr:DesignPrinciple ;
+    rdfs:label "Minimise head-locked UI" ;
+    rdfs:comment "Head-locked elements feel glued to the user's face and cause discomfort. Prefer world-locked or hand-locked placement." .
+
+xr:dp_comfortableReadingDistance
+    a xr:DesignPrinciple ;
+    rdfs:label "Comfortable reading distance" ;
+    rdfs:comment "Place readable UI at 1–2 m from the user to sit within the comfortable vergence-accommodation range." .
+
+xr:dp_degreeOfFreedom
+    a xr:DesignPrinciple ;
+    rdfs:label "Respect 6DOF affordances" ;
+    rdfs:comment "Design interactions that leverage 6DOF input rather than mapping flat 2D UI patterns." .
+
+xr:dp_spatialConsistency
+    a xr:DesignPrinciple ;
+    rdfs:label "Spatial consistency" ;
+    rdfs:comment "Anchored objects should remain stable across sessions to build user spatial memory." .
+
+xr:dp_locomotionComfort
+    a xr:DesignPrinciple ;
+    rdfs:label "Locomotion comfort" ;
+    rdfs:comment "Prefer teleportation or physical walking over continuous artificial locomotion to reduce cybersickness." .
+
+xr:dp_affordanceClarity
+    a xr:DesignPrinciple ;
+    rdfs:label "Affordance clarity" ;
+    rdfs:comment "Interactable objects should visually signal their interactability (highlight, hover state, tooltip)." .
+
+xr:dp_accessibilityBaseline
+    a xr:DesignPrinciple ;
+    rdfs:label "Accessibility baseline" ;
+    rdfs:comment "Provide at least two input modalities and subtitles/captions for all spatial audio content." .
+
+
+# ─────────────────────────────────────────────
+# Object properties
+# ─────────────────────────────────────────────
+
+xr:usesMedium
+    a owl:ObjectProperty ;
+    rdfs:label "uses medium" ;
+    rdfs:domain xr:XRExperience ;
+    rdfs:range xr:XRMedium ;
+    rdfs:comment "The reality medium an XR experience is delivered through." .
+
+xr:runOnDevice
+    a owl:ObjectProperty ;
+    rdfs:label "runs on device" ;
+    rdfs:domain xr:XRExperience ;
+    rdfs:range xr:Device ;
+    rdfs:comment "The hardware platform an experience targets." .
+
+xr:employsInteraction
+    a owl:ObjectProperty ;
+    rdfs:label "employs interaction" ;
+    rdfs:domain xr:XRExperience ;
+    rdfs:range xr:InteractionModel ;
+    rdfs:comment "The interaction model(s) supported by the experience." .
+
+xr:containsComponent
+    a owl:ObjectProperty ;
+    rdfs:label "contains component" ;
+    rdfs:domain xr:XRExperience ;
+    rdfs:range xr:UIComponent ;
+    rdfs:comment "UI components present in the experience." .
+
+xr:rendersContent
+    a owl:ObjectProperty ;
+    rdfs:label "renders content" ;
+    rdfs:domain xr:XRExperience ;
+    rdfs:range xr:ContentType ;
+    rdfs:comment "Content types rendered by the experience." .
+
+xr:takesPlaceIn
+    a owl:ObjectProperty ;
+    rdfs:label "takes place in" ;
+    rdfs:domain xr:XRExperience ;
+    rdfs:range xr:Space ;
+    rdfs:comment "The space context in which the experience unfolds." .
+
+xr:anchorsContentWith
+    a owl:ObjectProperty ;
+    rdfs:label "anchors content with" ;
+    rdfs:domain xr:XRExperience ;
+    rdfs:range xr:AnchorStrategy ;
+    rdfs:comment "The anchor strategy used to place virtual content." .
+
+xr:guidedBy
+    a owl:ObjectProperty ;
+    rdfs:label "guided by" ;
+    rdfs:domain xr:XRExperience ;
+    rdfs:range xr:DesignPrinciple ;
+    rdfs:comment "Design principles applied during the creation of this experience." .
+
+xr:affectsComfort
+    a owl:ObjectProperty ;
+    rdfs:label "affects comfort" ;
+    rdfs:domain xr:XRExperience ;
+    rdfs:range xr:ComfortFactor ;
+    rdfs:comment "Comfort factors that may be relevant to this experience." .
+
+xr:engagesWith
+    a owl:ObjectProperty ;
+    rdfs:label "engages with" ;
+    rdfs:domain xr:User ;
+    rdfs:range xr:XRExperience ;
+    rdfs:comment "Links a user to the experience they participate in." .
+
+xr:representsUser
+    a owl:ObjectProperty ;
+    rdfs:label "represents user" ;
+    rdfs:domain xr:Avatar ;
+    rdfs:range xr:User ;
+    rdfs:comment "The user a given avatar represents." .
+
+xr:supportedBy
+    a owl:ObjectProperty ;
+    rdfs:label "supported by" ;
+    rdfs:domain xr:InteractionModel ;
+    rdfs:range xr:Device ;
+    rdfs:comment "The device(s) that technically support this interaction model." .
+
+
+# ─────────────────────────────────────────────
+# Datatype properties
+# ─────────────────────────────────────────────
+
+xr:fieldOfView
+    a owl:DatatypeProperty ;
+    rdfs:label "field of view (degrees)" ;
+    rdfs:domain xr:HeadMountedDisplay ;
+    rdfs:range xsd:float ;
+    rdfs:comment "Horizontal field of view in degrees." .
+
+xr:refreshRate
+    a owl:DatatypeProperty ;
+    rdfs:label "refresh rate (Hz)" ;
+    rdfs:domain xr:HeadMountedDisplay ;
+    rdfs:range xsd:integer ;
+    rdfs:comment "Display refresh rate in Hz. Higher values reduce flicker and motion sickness risk." .
+
+xr:trackingDOF
+    a owl:DatatypeProperty ;
+    rdfs:label "tracking degrees of freedom" ;
+    rdfs:domain xr:Device ;
+    rdfs:range xsd:integer ;
+    rdfs:comment "Number of degrees of freedom tracked (3 = rotational only, 6 = full positional)." .
+
+xr:recommendedMinDistance
+    a owl:DatatypeProperty ;
+    rdfs:label "recommended minimum distance (m)" ;
+    rdfs:domain xr:UIComponent ;
+    rdfs:range xsd:float ;
+    rdfs:comment "Minimum comfortable placement distance in metres from the user." .
+
+xr:recommendedMaxDistance
+    a owl:DatatypeProperty ;
+    rdfs:label "recommended maximum distance (m)" ;
+    rdfs:domain xr:UIComponent ;
+    rdfs:range xsd:float ;
+    rdfs:comment "Maximum effective placement distance in metres from the user." .
+
+xr:latencyMs
+    a owl:DatatypeProperty ;
+    rdfs:label "motion-to-photon latency (ms)" ;
+    rdfs:domain xr:XRExperience ;
+    rdfs:range xsd:integer ;
+    rdfs:comment "Motion-to-photon latency in milliseconds. Values above ~20ms increase cybersickness risk." .
+
+
+# ─────────────────────────────────────────────
+# Example individuals — a sample VR training experience
+# ─────────────────────────────────────────────
+
+xr:FireSafetyVRTraining
+    a xr:XRExperience ;
+    rdfs:label "Fire Safety VR Training" ;
+    rdfs:comment "An immersive VR training simulation for workplace fire safety procedures." ;
+    xr:usesMedium xr:VirtualReality ;
+    xr:runOnDevice xr:VRHeadset ;
+    xr:employsInteraction xr:ControllerInput ;
+    xr:employsInteraction xr:GazeInput ;
+    xr:containsComponent xr:SpatialPanel ;
+    xr:containsComponent xr:Tooltip ;
+    xr:containsComponent xr:SpatialAudio ;
+    xr:rendersContent xr:3DModel ;
+    xr:rendersContent xr:ParticleSystem ;
+    xr:takesPlaceIn xr:Scene ;
+    xr:guidedBy xr:dp_affordanceClarity ;
+    xr:guidedBy xr:dp_locomotionComfort ;
+    xr:guidedBy xr:dp_accessibilityBaseline ;
+    xr:affectsComfort xr:MotionSickness ;
+    xr:latencyMs 18 .
+
+xr:ARProductViewer
+    a xr:XRExperience ;
+    rdfs:label "AR Product Viewer" ;
+    rdfs:comment "Mobile AR app allowing users to place and inspect furniture in their home." ;
+    xr:usesMedium xr:AugmentedReality ;
+    xr:runOnDevice xr:HandheldDevice ;
+    xr:employsInteraction xr:DirectManipulation ;
+    xr:containsComponent xr:WorldLockedElement ;
+    xr:containsComponent xr:Billboard ;
+    xr:rendersContent xr:3DModel ;
+    xr:takesPlaceIn xr:PhysicalSpace ;
+    xr:anchorsContentWith xr:SurfaceAnchor ;
+    xr:guidedBy xr:dp_spatialConsistency ;
+    xr:guidedBy xr:dp_affordanceClarity .
+
+xr:MRCollaborationApp
+    a xr:XRExperience ;
+    rdfs:label "MR Collaboration App" ;
+    rdfs:comment "Mixed reality workspace for co-located and remote teams to collaborate around 3D data." ;
+    xr:usesMedium xr:MixedReality ;
+    xr:runOnDevice xr:ARGlasses ;
+    xr:employsInteraction xr:HandTracking ;
+    xr:employsInteraction xr:VoiceInput ;
+    xr:containsComponent xr:SpatialPanel ;
+    xr:containsComponent xr:HandLockedElement ;
+    xr:containsComponent xr:SpatialAudio ;
+    xr:rendersContent xr:Avatar ;
+    xr:rendersContent xr:DataVisualization ;
+    xr:takesPlaceIn xr:PhysicalSpace ;
+    xr:anchorsContentWith xr:SharedAnchor ;
+    xr:guidedBy xr:dp_minimiseHeadLock ;
+    xr:guidedBy xr:dp_comfortableReadingDistance ;
+    xr:guidedBy xr:dp_accessibilityBaseline ;
+    xr:affectsComfort xr:EyeStrain .
+

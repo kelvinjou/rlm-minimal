@@ -33,7 +33,7 @@ def main():
         model="moonshotai/kimi-k2.6",
         recursive_model="moonshotai/kimi-k2.6",
         enable_logging=True,
-        log_to_file=True,
+        log_to_file=False,
         log_dir="logs",
         max_iterations=3,
         depth=2
