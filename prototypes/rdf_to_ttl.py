@@ -55,9 +55,21 @@ ORDER BY ?experienceLabel
 for row in g.query(query_str):
     print(f"{row.experienceLabel} | {row.mediumLabel} | {row.deviceLabel} | {row.interactionLabel} | {row.componentLabel}")
 
-# graph traversal and scoring (determining priorities)
-# determine which branch to explore
-# return design recommendations
+"""
+graph traversal and scoring (determining priorities)
+determine which branch to explore
+return design recommendations
 
-# given original query + chat history
-# add on references w/ RLM extracting relevant considerations of graph
+given original query + chat history
+add on references w/ RLM extracting relevant considerations of graph
+
+give RLM access to top level classes (line 23 of ttl)
+determine priorities, by assigning scores per connection?
+
+ttl structure IS multihop reasoning
+do I want to generate a XR experience TTL from prompt or...?
+
+ENHANCED_XR HAS RELATIONAL PROPERTIES (i.e. supportsTask, appliesTo, addressesHumanFactor)
+
+can it detect + resolve contradiction if RLMs run in parallel and come back?
+"""

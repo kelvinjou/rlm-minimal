@@ -2,10 +2,13 @@
 LLM client wrappers.
 """
 
+from __future__ import annotations
+
 import os
+import time
 from dataclasses import dataclass
 from typing import Optional
-from openai import OpenAI
+from openai import APIConnectionError, APIStatusError, APITimeoutError, OpenAI
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -49,6 +52,8 @@ class OpenAICompatibleClient:
         model: str = "gpt-5",
         base_url: Optional[str] = None,
         provider: str = "openai",
+        timeout: float = 300.0,
+        max_retries: int = 3,
     ):
         provider_defaults = OPENAI_COMPATIBLE_PROVIDERS.get(provider)
         if provider_defaults is None and base_url is None:
@@ -68,6 +73,8 @@ class OpenAICompatibleClient:
         
         self.provider = provider
         self.model = model
+        self.timeout = timeout
+        self.max_retries = max_retries
         base_url_env = f"{provider.upper()}_BASE_URL"
         default_base_url = provider_defaults.base_url if provider_defaults else None
         self.base_url = base_url or os.getenv(base_url_env) or os.getenv("LLM_BASE_URL") or default_base_url
@@ -77,6 +84,14 @@ class OpenAICompatibleClient:
             self.client = OpenAI(api_key=self.api_key)
 
         # Implement cost tracking logic here.
+
+    @staticmethod
+    def _is_retryable_error(error: Exception) -> bool:
+        if isinstance(error, (APIConnectionError, APITimeoutError)):
+            return True
+        if isinstance(error, APIStatusError):
+            return error.status_code in {408, 409, 429, 500, 502, 503, 504}
+        return False
     
     def completion(
         self,
@@ -93,6 +108,7 @@ class OpenAICompatibleClient:
             request_params = {
                 "model": self.model,
                 "messages": messages,
+                "timeout": self.timeout,
                 **kwargs,
             }
 
@@ -101,7 +117,26 @@ class OpenAICompatibleClient:
                 # max_tokens. Avoid sending max_completion_tokens=None.
                 request_params["max_tokens"] = max_tokens
 
-            response = self.client.chat.completions.create(**request_params)
+            response = None
+            for attempt in range(self.max_retries + 1):
+                try:
+                    response = self.client.chat.completions.create(**request_params)
+                    break
+                except Exception as e:
+                    if attempt >= self.max_retries or not self._is_retryable_error(e):
+                        raise
+
+                    delay = min(2 ** attempt, 8)
+                    status = getattr(e, "status_code", None)
+                    error_label = f"status {status}" if status else type(e).__name__
+                    print(
+                        f"LLM request failed with {error_label}; "
+                        f"retrying in {delay}s ({attempt + 1}/{self.max_retries})..."
+                    )
+                    time.sleep(delay)
+
+            if response is None:
+                raise RuntimeError("LLM request failed without returning a response.")
 
             choices = getattr(response, "choices", None)
             if not choices:
@@ -144,6 +179,8 @@ def create_llm_client(
     model: str = "gpt-5",
     base_url: Optional[str] = None,
     provider: Optional[str] = None,
+    timeout: float = 300.0,
+    max_retries: int = 3,
 ) -> OpenAICompatibleClient:
     provider = provider or os.getenv("RLM_CLIENT_BACKEND", "openai")
     return OpenAICompatibleClient(
@@ -151,6 +188,8 @@ def create_llm_client(
         model=model,
         base_url=base_url,
         provider=provider,
+        timeout=timeout,
+        max_retries=max_retries,
     )
 
 

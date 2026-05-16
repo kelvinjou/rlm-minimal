@@ -2,12 +2,20 @@
 Simple Recursive Language Model (RLM) with REPL environment.
 """
 
+from __future__ import annotations
+
 from typing import Dict, List, Optional, Any 
 
 from rlm import RLM
 from rlm.repl import REPLEnv
 from rlm.utils.llm import create_llm_client
-from rlm.utils.prompts import DEFAULT_QUERY, next_action_prompt, build_system_prompt
+from rlm.utils.prompts import (
+    DEFAULT_QUERY,
+    build_ontology_system_prompt,
+    build_system_prompt,
+    next_action_prompt,
+    next_ontology_action_prompt,
+)
 import rlm.utils.utils as utils
 
 from rlm.logger.root_logger import ColorfulLogger
@@ -34,6 +42,12 @@ class RLM_REPL(RLM):
                  log_to_file: bool = False,
                  log_dir: str = "logs",
                  log_file: Optional[str] = None,
+                 prompt_mode: str = "default",
+                 request_timeout: float = 300.0,
+                 max_retries: int = 3,
+                 max_tokens: Optional[int] = None,
+                 max_format_retries: int = 1,
+                 force_final_answer_on_max_iterations: bool = True,
                  ):
         import os
         from datetime import datetime
@@ -59,11 +73,18 @@ class RLM_REPL(RLM):
         )
         self.model = model
         self.recursive_model = recursive_model
+        self.request_timeout = request_timeout
+        self.max_retries = max_retries
+        self.max_tokens = max_tokens
+        self.max_format_retries = max_format_retries
+        self.force_final_answer_on_max_iterations = force_final_answer_on_max_iterations
         self.llm = create_llm_client(
             api_key=self.api_key,
             model=model,
             base_url=self.base_url,
             provider=self.client_backend,
+            timeout=self.request_timeout,
+            max_retries=self.max_retries,
         )
         
         # Track recursive call depth to prevent infinite loops
@@ -82,6 +103,61 @@ class RLM_REPL(RLM):
         
         self.messages = [] # Initialize messages list
         self.query = None
+        if prompt_mode not in {"default", "ontology"}:
+            raise ValueError("prompt_mode must be 'default' or 'ontology'.")
+        self.prompt_mode = prompt_mode
+
+    def _build_system_prompt(self) -> list[Dict[str, str]]:
+        if self.prompt_mode == "ontology":
+            return build_ontology_system_prompt()
+        return build_system_prompt()
+
+    def _next_action_prompt(
+        self,
+        query: str,
+        iteration: int = 0,
+        final_answer: bool = False,
+    ) -> Dict[str, str]:
+        if self.prompt_mode == "ontology":
+            return next_ontology_action_prompt(query, iteration, final_answer)
+        return next_action_prompt(query, iteration, final_answer)
+
+    @staticmethod
+    def _has_native_tool_call_markup(response: str) -> bool:
+        return (
+            "<|tool_calls_section_begin|>" in response
+            or "<|tool_call_begin|>" in response
+            or "functions.repl" in response
+        )
+
+    def _request_next_action(self, query: str, iteration: int) -> str:
+        messages = self.messages + [self._next_action_prompt(query, iteration)]
+        response = self.llm.completion(messages, max_tokens=self.max_tokens)
+
+        for format_attempt in range(self.max_format_retries):
+            if not self._has_native_tool_call_markup(response):
+                break
+
+            print(
+                "Model emitted native tool-call markup; requesting markdown "
+                f"repl/FINAL format retry ({format_attempt + 1}/{self.max_format_retries})..."
+            )
+            correction = {
+                "role": "user",
+                "content": (
+                    "Your previous response used native tool-call markup, which this runtime cannot execute. "
+                    "Do not use `<|tool_calls_section_begin|>`, `functions.repl`, JSON tool arguments, or any "
+                    "provider-specific function-call syntax. Respond again using only one of these formats:\n\n"
+                    "```repl\n"
+                    "print(type(context).__name__)\n"
+                    "```\n\n"
+                    "or\n\n"
+                    "FINAL(your completed answer)"
+                ),
+            }
+            response = self.llm.completion(messages + [{"role": "assistant", "content": response}, correction], max_tokens=self.max_tokens)
+
+        return response
     
     def setup_context(self, context: List[str] | str | List[Dict[str, str]], query: Optional[str] = None):
         """
@@ -98,7 +174,7 @@ class RLM_REPL(RLM):
         self.logger.log_query_start(query)
 
         # Initialize the conversation with the REPL prompt
-        self.messages = build_system_prompt()
+        self.messages = self._build_system_prompt()
         self.logger.log_initial_messages(self.messages)
         
         # Initialize REPL environment with context data
@@ -111,6 +187,9 @@ class RLM_REPL(RLM):
             recursive_client_backend=self.recursive_client_backend,
             recursive_api_key=self.recursive_api_key,
             recursive_base_url=self.recursive_base_url,
+            recursive_timeout=self.request_timeout,
+            recursive_max_retries=self.max_retries,
+            recursive_max_tokens=self.max_tokens,
         )
         
         return self.messages
@@ -126,7 +205,9 @@ class RLM_REPL(RLM):
         for iteration in range(self._max_iterations):
             
             # Query root LM to interact with REPL environment
-            response = self.llm.completion(self.messages + [next_action_prompt(query, iteration)])
+            print(f"RLM root iteration {iteration + 1}/{self._max_iterations}: requesting next action...")
+            response = self._request_next_action(query, iteration)
+            print(f"RLM root iteration {iteration + 1}/{self._max_iterations}: received response.")
             
             # Check for code blocks
             code_blocks = utils.find_code_blocks(response)
@@ -156,8 +237,13 @@ class RLM_REPL(RLM):
             
         # If we reach here, no final answer was found in any iteration
         print("No final answer found in any iteration")
-        self.messages.append(next_action_prompt(query, iteration, final_answer=True))
-        final_answer = self.llm.completion(self.messages)
+        if not self.force_final_answer_on_max_iterations:
+            return response
+
+        print("Requesting forced final answer after max_iterations...")
+        self.messages.append(self._next_action_prompt(query, iteration, final_answer=True))
+        final_answer = self.llm.completion(self.messages, max_tokens=self.max_tokens)
+        print("Received forced final answer.")
         self.logger.log_final_response(final_answer)
 
         return final_answer

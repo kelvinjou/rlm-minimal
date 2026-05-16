@@ -14,6 +14,12 @@ The REPL environment is initialized with:
 2. A `llm_query` function that allows you to query an LLM (that can handle around 500K chars) inside your REPL environment.
 3. The ability to use `print()` statements to view the output of your REPL code and continue your reasoning.
 
+There are no native chat tools available. Do not emit tool-call markup such as `<|tool_calls_section_begin|>`, `functions.repl`, JSON tool arguments, or any provider-specific function-call syntax. The only executable action format is a markdown code block labeled exactly `repl`, like:
+```repl
+print(type(context).__name__)
+```
+If you are ready to answer, use `FINAL(...)` or `FINAL_VAR(...)` instead of tool-call syntax.
+
 Use the REPL as a workbench. Do not assume the task is simple search. The context may require extraction, comparison, aggregation, ranking, consistency checking, multi-hop reasoning, semantic synthesis, transformation, or a mix of these. Build the tools you need inside the REPL as you learn the shape of the context.
 
 Start by orienting yourself:
@@ -112,6 +118,152 @@ IMPORTANT: When you are done with the iterative process, you MUST provide a fina
 Think step by step carefully, plan, and execute this plan immediately in your response -- do not just say "I will do this" or "I will do that". Use the REPL environment as much as possible, and create the helper code you need inside it. Remember to explicitly answer the original query in your final answer.
 """
 
+
+ONTOLOGY_REPL_SYSTEM_PROMPT = """You are tasked with answering a user query by reasoning over a large ontology provided to you in the REPL environment. The ontology source is available as the `context` variable, usually as Turtle/TTL text. You can inspect, parse, query, transform, and summarize it interactively. You will be queried iteratively until you provide a final answer.
+
+The REPL environment is initialized with:
+1. A `context` variable that contains the ontology source or a structured representation of it.
+2. A `llm_query` function that lets you query a sub-LLM when semantic classification, scenario interpretation, or synthesis helps.
+3. The ability to use `print()` statements to view compact outputs from your REPL work.
+
+There are no native chat tools available. Do not emit tool-call markup such as `<|tool_calls_section_begin|>`, `functions.repl`, JSON tool arguments, or any provider-specific function-call syntax. The only executable action format is a markdown code block labeled exactly `repl`, like:
+```repl
+print(type(context).__name__)
+```
+If you are ready to answer, use `FINAL(...)` or `FINAL_VAR(...)` instead of tool-call syntax.
+
+Treat the ontology as a knowledge graph, not as undifferentiated long text. Your job is to ground the answer in graph structure: classes, instances, labels, comments, subclass relations, object properties, datatype properties, domains, ranges, and explicit assertions. Prefer RDF parsing, graph traversal, and SPARQL queries over ad hoc text matching. Avoid regex-oriented extraction unless RDF parsing is impossible.
+
+Start by orienting yourself to the graph:
+- Determine whether `context` is TTL text, JSON-like structured data, or another representation.
+- If it is TTL text, parse it into an RDF graph with `rdflib.Graph().parse(data=text, format="turtle")`.
+- Print compact graph metadata: triple count, namespaces, ontology label/comment if present, top-level classes, object properties, datatype properties, and a few representative relation assertions.
+- Do not print large ontology sections. Use compact tables, counts, labels, and selected evidence triples.
+
+For XR (extended reality) recommendation and design queries, use this decomposition:
+1. Scenario interpretation: extract the user's application domain, target users, tasks, constraints, human factors, hardware assumptions, interaction needs, evaluation needs, and explicit risks.
+2. Ontology routing: map those requirements to ontology categories such as Task, InteractionTechnique, HardwareComponent, HumanFactor, UIComponent, DesignPrinciple, EvaluationMethod, and ApplicationDomain.
+3. Candidate retrieval: retrieve graph nodes connected to the mapped requirements by relations such as `rdfs:subClassOf`, `rdf:type`, `supportsTask`, `addressesHumanFactor`, `appliesTo`, `usesHardware`, `evaluatedBy`, `coveredInChapter`, and nearby inverse relations.
+4. Multi-hop expansion: for each strong candidate, gather labels, comments, parent classes, connected tasks, human factors, principles, evaluation methods, hardware dependencies, and chapter anchors.
+5. Priority scoring: rank candidates by graph evidence. Favor direct task support, direct human-factor relevance, explicit design-principle applicability, scenario constraint fit, evaluation coverage, and useful multi-hop support. Penalize candidates that conflict with stated constraints.
+6. Synthesis: convert ranked graph evidence into recommendations. Clearly distinguish explicit ontology evidence from inference.
+
+Use Python for graph operations. A good first move is:
+```repl
+import json
+from rdflib import Graph, RDF, RDFS, OWL, URIRef
+
+if isinstance(context, str):
+    text = context
+else:
+    text = json.dumps(context, ensure_ascii=False, indent=2)
+
+g = Graph()
+try:
+    g.parse(data=text, format="turtle")
+    print("parsed_as:", "turtle")
+    print("triples:", len(g))
+    print("namespaces:", [(prefix, str(uri)) for prefix, uri in list(g.namespaces())[:12]])
+except Exception as exc:
+    print("parse_error:", type(exc).__name__, str(exc)[:500])
+```
+
+Once parsed, build a small orientation snapshot with SPARQL or RDF traversal:
+```repl
+q = '''
+SELECT ?class ?label ?parent WHERE {
+  ?class a owl:Class .
+  OPTIONAL { ?class rdfs:label ?label . }
+  OPTIONAL { ?class rdfs:subClassOf ?parent . }
+}
+LIMIT 80
+'''
+for row in g.query(q, initNs={"owl": OWL, "rdfs": RDFS}):
+    print(row)
+```
+
+When interpreting a scenario, ask the sub-LLM only for structured mapping work, not final recommendations:
+```repl
+scenario_prompt = '''
+Extract ontology retrieval requirements from this XR scenario.
+Return compact JSON with keys: domain, tasks, human_factors, hardware_constraints,
+interaction_needs, ui_components, evaluation_needs, risks, keywords.
+Do not recommend solutions yet.
+
+Scenario:
+''' + original_query
+requirements_text = llm_query(scenario_prompt)
+print(requirements_text[:2000])
+```
+
+Then query the graph for candidates using the ontology's own predicates. Use labels and comments to help map natural language requirements to graph nodes, but preserve the source URI and evidence triples. Retrieval should produce a structured candidate list, for example:
+- uri
+- label
+- ontology category
+- why_retrieved
+- evidence triples
+- relevant comments
+- connected tasks
+- connected human factors
+- connected principles
+- connected evaluation methods
+- preliminary score
+
+Useful SPARQL patterns include:
+```repl
+candidate_query = '''
+SELECT ?candidate ?candidateLabel ?task ?taskLabel ?comment WHERE {
+  ?candidate :supportsTask ?task .
+  OPTIONAL { ?candidate rdfs:label ?candidateLabel . }
+  OPTIONAL { ?candidate rdfs:comment ?comment . }
+  OPTIONAL { ?task rdfs:label ?taskLabel . }
+}
+'''
+for row in g.query(candidate_query, initNs=dict(g.namespaces())):
+    print(row)
+```
+
+```repl
+human_factor_query = '''
+SELECT ?candidate ?candidateLabel ?factor ?factorLabel ?comment WHERE {
+  { ?candidate :addressesHumanFactor ?factor . }
+  UNION
+  { ?candidate :appliesTo ?factor . }
+  OPTIONAL { ?candidate rdfs:label ?candidateLabel . }
+  OPTIONAL { ?candidate rdfs:comment ?comment . }
+  OPTIONAL { ?factor rdfs:label ?factorLabel . }
+}
+'''
+for row in g.query(human_factor_query, initNs=dict(g.namespaces())):
+    print(row)
+```
+
+If a predicate prefix is unknown, inspect `g.namespaces()` and use full URIRefs or build the namespace from the ontology header. If the graph models recommendable concepts as `owl:Class` rather than instances, treat those classes as concept nodes and use their labels, comments, subclass parents, and assertions as evidence.
+
+For semantic matching, use sub-LLM calls only after graph retrieval has narrowed the candidate set. Ask focused questions such as:
+- Which candidate labels/comments match these scenario requirements?
+- Which candidates conflict with these constraints?
+- Which evidence triples justify a high-priority recommendation?
+- Which evaluation methods best cover the selected risks?
+
+Maintain explicit REPL variables such as `requirements`, `candidate_rows`, `evidence`, `scores`, `ranked_recommendations`, and `open_questions`. Before finalizing, verify that each recommendation has at least one supporting graph relation or clearly label it as inference. Re-check high-scoring and rejected candidates against the graph so the final answer is not based on unsupported semantic guesses.
+
+Your final output should be useful for a system designer. Prefer a concise structured answer containing:
+- interpreted scenario requirements
+- high-priority recommendations grouped by type, such as interaction techniques, UI components, hardware considerations, design principles, and evaluation methods
+- evidence from the ontology for each recommendation
+- tradeoffs or conflicts
+- gaps where the ontology lacks enough information
+
+IMPORTANT: When you are done with the iterative process, you MUST provide a final answer inside a FINAL function when you have completed your task, NOT in code. Do not use these tags unless you have completed your task. You have two options:
+1. Use FINAL(your final answer here) to provide the answer directly
+2. Use FINAL_VAR(variable_name) to return a variable you have created in the REPL environment as your final output
+
+Think step by step, plan the graph investigation, and execute it immediately in the REPL. Do not answer from memory when the ontology can be queried. Remember to explicitly answer the original query and ground recommendations in ontology evidence.
+"""
+
+
+
 def build_system_prompt() -> list[Dict[str, str]]:
     return [
         {
@@ -121,8 +273,21 @@ def build_system_prompt() -> list[Dict[str, str]]:
     ]
 
 
+def build_ontology_system_prompt() -> list[Dict[str, str]]:
+    return [
+        {
+            "role": "system",
+            "content": ONTOLOGY_REPL_SYSTEM_PROMPT
+        },
+    ]
+
+
 # Prompt at every step to query root LM to make a decision
-USER_PROMPT = """Think step-by-step on what to do using the REPL environment (which contains the context) to answer the original query: \"{query}\".\n\nContinue using the REPL environment, which has the `context` variable and `llm_query` for semantic sub-queries. First inspect the context shape, then choose and implement a task-specific strategy: exact Python processing for mechanical parts, chunked sub-LLM calls for semantic parts, and explicit evidence buffers for multi-step reasoning. Your next action:""" 
+USER_PROMPT = """Think step-by-step on what to do using the REPL environment (which contains the context) to answer the original query: \"{query}\".\n\nContinue using the REPL environment, which has the `context` variable and `llm_query` for semantic sub-queries. First inspect the context shape, then choose and implement a task-specific strategy: exact Python processing for mechanical parts, chunked sub-LLM calls for semantic parts, and explicit evidence buffers for multi-step reasoning. Use only markdown `repl` code fences for executable actions, or `FINAL(...)` / `FINAL_VAR(...)` for completed answers. Do not emit native tool-call syntax or `functions.repl`. Your next action:""" 
+
+ONTOLOGY_USER_PROMPT = """Think step-by-step on what to do using the REPL environment to answer the original query: \"{query}\".\n\nContinue using the REPL environment, where `context` contains the ontology source and `llm_query` is available for focused semantic sub-queries. Parse or inspect the ontology as a graph, map the query to ontology categories, retrieve relevant nodes and multi-hop evidence, score candidates, verify the evidence, and then synthesize graph-grounded recommendations. Use only markdown `repl` code fences for executable actions, or `FINAL(...)` / `FINAL_VAR(...)` for completed answers. Do not emit native tool-call syntax or `functions.repl`. Your next action:"""
+
+
 def next_action_prompt(query: str, iteration: int = 0, final_answer: bool = False) -> Dict[str, str]:
     if final_answer:
         return {"role": "user", "content": "Based on all the information you have, provide a final answer to the user's query."}
@@ -131,3 +296,13 @@ def next_action_prompt(query: str, iteration: int = 0, final_answer: bool = Fals
         return {"role": "user", "content": safeguard + USER_PROMPT.format(query=query)}
     else:
         return {"role": "user", "content": "The history before is your previous interactions with the REPL environment. " + USER_PROMPT.format(query=query)}
+
+
+def next_ontology_action_prompt(query: str, iteration: int = 0, final_answer: bool = False) -> Dict[str, str]:
+    if final_answer:
+        return {"role": "user", "content": "Based on the ontology evidence you gathered, provide a final answer to the user's query."}
+    if iteration == 0:
+        safeguard = "You have not interacted with the REPL environment or inspected the ontology yet. Your next action should parse or inspect the graph before recommending anything.\n\n"
+        return {"role": "user", "content": safeguard + ONTOLOGY_USER_PROMPT.format(query=query)}
+    else:
+        return {"role": "user", "content": "The history before is your previous ontology investigation in the REPL environment. " + ONTOLOGY_USER_PROMPT.format(query=query)}

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import sys
 import io
 import threading
@@ -21,6 +23,9 @@ class Sub_RLM(RLM):
         provider: Optional[str] = None,
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
+        timeout: float = 300.0,
+        max_retries: int = 3,
+        max_tokens: Optional[int] = None,
     ):
         self.provider = (
             provider
@@ -28,6 +33,7 @@ class Sub_RLM(RLM):
             or os.getenv("RLM_CLIENT_BACKEND", "openai")
         )
         self.model = model
+        self.max_tokens = max_tokens
 
         from rlm.utils.llm import create_llm_client
 
@@ -36,6 +42,8 @@ class Sub_RLM(RLM):
             model=model,
             base_url=base_url,
             provider=self.provider,
+            timeout=timeout,
+            max_retries=max_retries,
         )
         
     
@@ -47,7 +55,8 @@ class Sub_RLM(RLM):
             # Handle both string and dictionary/list inputs
             response = self.client.completion(
                 messages=prompt,
-                timeout=300
+                max_tokens=self.max_tokens,
+                timeout=300,
             )
             
             return response
@@ -86,6 +95,9 @@ class REPLEnv:
         recursive_client_backend: Optional[str] = None,
         recursive_api_key: Optional[str] = None,
         recursive_base_url: Optional[str] = None,
+        recursive_timeout: float = 300.0,
+        recursive_max_retries: int = 3,
+        recursive_max_tokens: Optional[int] = None,
         context_json: Optional[dict | list] = None,
         context_str: Optional[str] = None,
         setup_code: str = None,
@@ -103,6 +115,9 @@ class REPLEnv:
             provider=recursive_client_backend,
             api_key=recursive_api_key,
             base_url=recursive_base_url,
+            timeout=recursive_timeout,
+            max_retries=recursive_max_retries,
+            max_tokens=recursive_max_tokens,
         )
         
         # Create safe globals with only string-safe built-ins
@@ -211,6 +226,18 @@ class REPLEnv:
                 return f"Error retrieving variable '{variable_name}': {str(e)}"
         
         self.globals['FINAL_VAR'] = final_var
+
+        def final(value) -> str:
+            """
+            Store a final answer from inside the REPL.
+            Prefer response-level FINAL(...), but this handles models that place
+            FINAL(value) inside a repl code block.
+            """
+            answer = str(value)
+            self.locals["_FINAL"] = answer
+            return answer
+
+        self.globals['FINAL'] = final
         
         # Finally, run any setup code if provided
         if setup_code:

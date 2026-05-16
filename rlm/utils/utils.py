@@ -24,15 +24,19 @@ def find_final_answer(text: str) -> Optional[Tuple[str, str]]:
     Find FINAL(...) or FINAL_VAR(...) statement in response and return (type, content).
     Returns None if neither pattern is found.
     """
+    # FINAL/FINAL_VAR are response-level control markers. Ignore anything inside
+    # markdown code fences, where FINAL(...) should be treated as executable code.
+    text_without_code = re.sub(r'```.*?```', '', text, flags=re.DOTALL)
+
     # Check for FINAL_VAR pattern first - must be at start of line
     final_var_pattern = r'^\s*FINAL_VAR\((.*?)\)'
-    match = re.search(final_var_pattern, text, re.MULTILINE | re.DOTALL)
+    match = re.search(final_var_pattern, text_without_code, re.MULTILINE | re.DOTALL)
     if match:
         return ('FINAL_VAR', match.group(1).strip())
     
     # Check for FINAL pattern - must be at start of line
     final_pattern = r'^\s*FINAL\((.*?)\)'
-    match = re.search(final_pattern, text, re.MULTILINE | re.DOTALL)
+    match = re.search(final_pattern, text_without_code, re.MULTILINE | re.DOTALL)
     if match:
         return ('FINAL', match.group(1).strip())
     
@@ -183,6 +187,9 @@ def process_code_execution(
 def check_for_final_answer(response: str, repl_env, logger) -> Optional[str]:
     """Check if response contains a final answer."""
     result = find_final_answer(response)
+    if result is None and "_FINAL" in repl_env.locals:
+        return str(repl_env.locals.pop("_FINAL"))
+
     if result is None:
         return None
     
