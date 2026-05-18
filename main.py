@@ -102,6 +102,11 @@ def main() -> None:
     result = rlm.completion(context=context, query=query)
     print(f"Result: {result}")
 
+    print("Last usage:", rlm.llm.last_usage)
+    print("Prompt tokens:", rlm.llm.total_prompt_tokens)
+    print("Completion tokens:", rlm.llm.total_completion_tokens)
+    print("Total tokens:", rlm.llm.total_tokens)
+
 
 if __name__ == "__main__":
     main()

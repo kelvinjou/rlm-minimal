@@ -55,6 +55,12 @@ class OpenAICompatibleClient:
         timeout: float = 300.0,
         max_retries: int = 3,
     ):
+        # For keeping track of token usage 
+        self.last_usage = None
+        self.total_prompt_tokens = 0
+        self.total_completion_tokens = 0
+        self.total_tokens = 0
+
         provider_defaults = OPENAI_COMPATIBLE_PROVIDERS.get(provider)
         if provider_defaults is None and base_url is None:
             valid_providers = ", ".join(sorted(OPENAI_COMPATIBLE_PROVIDERS))
@@ -121,6 +127,7 @@ class OpenAICompatibleClient:
             for attempt in range(self.max_retries + 1):
                 try:
                     response = self.client.chat.completions.create(**request_params)
+                    self._record_usage(response)
                     break
                 except Exception as e:
                     if attempt >= self.max_retries or not self._is_retryable_error(e):
@@ -171,6 +178,24 @@ class OpenAICompatibleClient:
 
         except Exception as e:
             raise RuntimeError(f"Error generating completion: {str(e)}")
+        
+    def _record_usage(self, response) -> None:
+        if self.provider != "nvidia":
+            return
+        
+        usage = getattr(response, "usage", None)
+        self.last_usage = usage
+
+        if usage is None:
+            return
+        
+        prompt_tokens = getattr(usage, "prompt_tokens", 0) or 0
+        completion_tokens = getattr(usage, "completion_tokens", 0) or 0
+        total_tokens = getattr(usage, "total_tokens", 0) or 0
+
+        self.total_prompt_tokens += prompt_tokens
+        self.total_completion_tokens += completion_tokens
+        self.total_tokens += total_tokens
 
 
 def create_llm_client(
