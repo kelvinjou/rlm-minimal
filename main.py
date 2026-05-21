@@ -68,7 +68,7 @@ def main() -> None:
     recursive_model = "moonshotai/kimi-k2.6"
     max_iterations = 3
     enable_logging = True
-    log_to_file = False
+    log_to_file = True
     request_timeout = 500.0
     max_retries = 0
     max_tokens = 3000
